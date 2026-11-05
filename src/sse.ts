@@ -15,9 +15,46 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
   let heldDone: string | null = null;
   let suppressBlank = false;
   let strict = false;
+  let late = false;
+  const calls = new Set<number>();
+  const callArgs = new Set<number>();
 
   const emit = (controller: Controller, text: string | null) => {
     if (text !== null && text.length > 0) controller.enqueue(encoder.encode(text));
+  };
+
+  const track = (choice: any) => {
+    const toolCalls = choice?.delta?.tool_calls;
+    if (!Array.isArray(toolCalls)) return;
+    for (const call of toolCalls) {
+      const index = typeof call?.index === "number" ? call.index : -1;
+      if (index < 0) continue;
+      const hasName =
+        typeof call?.id === "string" &&
+        call.id !== "" &&
+        typeof call?.function?.name === "string" &&
+        call.function.name !== "";
+      if (hasName) calls.add(index);
+      if (typeof call?.function?.arguments === "string" && call.function.arguments.length > 0) {
+        callArgs.add(index);
+      }
+    }
+  };
+
+  const incomplete = () => {
+    for (const index of calls) if (!callArgs.has(index)) return true;
+    return false;
+  };
+
+  const lateData = (choice: any) => {
+    const delta = choice?.delta;
+    return (
+      Boolean(delta?.content) ||
+      Boolean(delta?.reasoning_content) ||
+      Boolean(delta?.reasoning) ||
+      (Array.isArray(delta?.tool_calls) && delta.tool_calls.length > 0) ||
+      (Array.isArray(delta?.reasoning_details) && delta.reasoning_details.length > 0)
+    );
   };
 
   const release = (line: string): string => {
@@ -54,7 +91,7 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
 
     const raw = match[1].trim();
     if (raw === "[DONE]") {
-      if (held !== null) {
+      if (held !== null && (late || incomplete())) {
         heldDone = line;
         suppressBlank = true;
         return null;
@@ -69,6 +106,8 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
       return line;
     }
     const choice = json?.choices?.[0];
+    track(choice);
+    if (held !== null && lateData(choice)) late = true;
 
     const reason = choice?.finish_reason;
     if (reason == null || reason === "") return line;
@@ -90,7 +129,7 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
       }
       if (head.usage !== undefined) delete head.usage;
       held = terminalLine(json, choice, reason, eol);
-      suppressBlank = true;
+      // The blank after the head must stay: it terminates the head event.
       return "data: " + JSON.stringify(head) + eol;
     }
 
@@ -123,8 +162,11 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
         held = null;
       }
       if (heldDone !== null) {
-        const sepDone = heldDone.endsWith("\r\n") ? "\r\n" : "\n";
-        emit(controller, heldDone + (heldDone.endsWith("\n") ? sepDone : "\n"));
+        const eolDone = heldDone.endsWith("\r\n") ? "\r\n" : "\n";
+        emit(
+          controller,
+          heldDone + (heldDone.endsWith("\n") ? eolDone : eolDone + eolDone),
+        );
         heldDone = null;
       }
     },
