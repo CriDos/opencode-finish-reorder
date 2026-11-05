@@ -12,6 +12,7 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
   const encoder = new TextEncoder();
   let pending = "";
   let held: string | null = null;
+  let heldDone: string | null = null;
   let suppressBlank = false;
   let strict = false;
 
@@ -52,7 +53,14 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
     if (!match) return line;
 
     const raw = match[1].trim();
-    if (raw === "[DONE]") return release(line);
+    if (raw === "[DONE]") {
+      if (held !== null) {
+        heldDone = line;
+        suppressBlank = true;
+        return null;
+      }
+      return release(line);
+    }
 
     let json: any;
     try {
@@ -113,6 +121,11 @@ export function createFinishReorder(): TransformStream<Uint8Array, Uint8Array> {
         const sep = held.endsWith("\r\n") ? "\r\n" : "\n";
         emit(controller, held + sep);
         held = null;
+      }
+      if (heldDone !== null) {
+        const sepDone = heldDone.endsWith("\r\n") ? "\r\n" : "\n";
+        emit(controller, heldDone + (heldDone.endsWith("\n") ? sepDone : "\n"));
+        heldDone = null;
       }
     },
   });

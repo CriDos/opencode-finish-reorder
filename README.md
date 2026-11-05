@@ -9,6 +9,7 @@ The bug: some gateways put `finish_reason` in the middle of the stream and keep 
 - Holds only `stop` and `tool_calls`; `length` and `content-filter` stay where they are, so a call the provider marked as truncated never executes.
 - If the terminal chunk also carries content or starts a tool call, that payload is emitted first and only the finish marker is held.
 - Re-emits the held finish before `[DONE]`, or at the end of the stream when `[DONE]` is missing.
+- If `[DONE]` arrives while a finish is held, the sentinel is held too: data that arrives after it is emitted before the finish instead of being ignored.
 - Does not parse or rewrite tool arguments; the existing bytes pass through in order.
 
 ## Install
@@ -36,7 +37,7 @@ Do not combine it with another plugin that drops content after the first `finish
 npm test
 ```
 
-22 tests: premature stop before a tool call, normal finish, same-chunk content/tool-init split, `length`/`content-filter` staying in place, flush without `[DONE]`, last finish wins, empty finish ignored, a call that starts before a premature stop and continues after it, byte-boundary invariance, SSE framing, CRLF, strict latch, provider/content-type filters, header cleanup, bodyless and error responses.
+23 tests: premature stop before a tool call, normal finish, same-chunk content/tool-init split, `length`/`content-filter` staying in place, flush without `[DONE]`, last finish wins, empty finish ignored, a call that starts before a premature stop and continues after it, arguments after `[DONE]`, byte-boundary invariance, SSE framing, CRLF, strict latch, provider/content-type filters, header cleanup, bodyless and error responses.
 
 Verified against a live gateway that emits `finish_reason: "stop"` before a late `write` tool call: a 3.6 KB argument payload arrived intact and the file was written, while the same turn failed before the plugin.
 
@@ -44,6 +45,7 @@ Verified against a live gateway that emits `finish_reason: "stop"` before a late
 
 - Only SSE and only the OpenAI Chat shape (`choices[0]`).
 - No duplicate-id guard: if a gateway replays a complete tool call after the finish, it may run twice. The observed gateway does not do this.
+- A tool call that arrives with no arguments at all is passed through unchanged; the plugin cannot invent missing arguments.
 - CR-only line endings are not split; real gateways use LF or CRLF.
 - A stream that ends without `finish_reason` is untouched; the plugin never invents a finish.
 - The plugin API is OpenCode 2 only; a major version may rename the hook.

@@ -165,6 +165,20 @@ test("keeps args after a premature stop when the call started before it", async 
   assert.ok(text.indexOf("path") < text.indexOf('"finish_reason":"stop"'), text);
 });
 
+test("keeps args that arrive after [DONE]", async () => {
+  const text = await run([
+    finish("stop"),
+    "data: [DONE]\n\n",
+    call(0, "call_1", "subagent", '{"agent":"general","description":"x","prompt":"y"}'),
+  ]);
+  const callAt = text.indexOf('"call_1"');
+  const finishAt = text.indexOf('"finish_reason":"stop"');
+  const doneAt = text.indexOf("[DONE]");
+  assert.ok(callAt !== -1 && finishAt !== -1 && doneAt !== -1, text);
+  assert.ok(callAt < finishAt, text);
+  assert.ok(finishAt < doneAt, text);
+});
+
 test("is invariant to chunk boundaries", async () => {
   const stream = [
     line({ choices: [{ delta: { reasoning_content: "think" } }] }),
