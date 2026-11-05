@@ -1,0 +1,26 @@
+{
+  "name": "opencode-finish-reorder",
+  "version": "0.1.0",
+  "description": "Holds a premature finish_reason chunk until the end of an OpenAI-compatible SSE stream so OpenCode does not fail on late tool calls.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "oc-plugin": ["server"],
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test test/",
+    "check": "tsc -p tsconfig.json --noEmit && node --test test/"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
