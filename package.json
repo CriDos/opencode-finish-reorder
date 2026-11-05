@@ -2,6 +2,11 @@
   "name": "opencode-finish-reorder",
   "version": "0.1.0",
   "description": "Holds a premature finish_reason chunk until the end of an OpenAI-compatible SSE stream so OpenCode does not fail on late tool calls.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CriDos/opencode-finish-reorder.git"
+  },
+  "homepage": "https://github.com/CriDos/opencode-finish-reorder#readme",
   "type": "module",
   "license": "MIT",
   "main": "./dist/index.js",

@@ -14,7 +14,7 @@ The bug: some gateways put `finish_reason` in the middle of the stream and keep 
 ## Install
 
 ```bash
-git clone <this repo>
+git clone https://github.com/CriDos/opencode-finish-reorder
 cd opencode-finish-reorder
 npm install
 npm run build
